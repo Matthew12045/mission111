@@ -8,7 +8,7 @@
  * replace pin numbers by the ones you use
  ******************************************************************/
 #define PS2_DAT        13  //14    
-#define PS2_CMD       11  //15
+#define PS2_CMD        11  //15
 #define PS2_SEL        10  //16
 #define PS2_CLK        12  //17
 
@@ -32,9 +32,67 @@ PS2X ps2x; // create PS2 Controller Class
 int error = 0;
 byte type = 0;
 byte vibrate = 0;
+int ENA = 6;
+int IN1 = 7;
+int IN2 = 8;
+int ENB = 5;
+int IN3 = 4;
+int IN4 = 3;
 
-void setup() {
-Serial.begin(57600);
+//n is moving type
+//0 == go forward, 1 == go backwards, 2 == turn left, 3 == turn right
+//ENA Left motor, ENB Right motor
+void move(int n, int speed) 
+{
+  if (n == 0) 
+  {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    analogWrite(ENA, speed);
+    analogWrite(ENB, speed);
+  } 
+  else if (n == 1)
+  {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(ENA, speed);
+    analogWrite(ENB, speed);
+  }
+    else if (n == 2)
+  {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(ENA, speed);
+    analogWrite(ENB, speed);
+  }
+      else if (n == 3)
+  {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    analogWrite(ENA, speed);
+    analogWrite(ENB, speed);
+  }
+}
+
+void setup(){
+ 
+  Serial.begin(57600);
+
+  //setup pins for motor driver
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
   
   delay(1000);  //added delay to give wireless ps2 module some time to startup, before configuring it
    
@@ -87,8 +145,8 @@ Serial.begin(57600);
    }
 }
 
-
-void loop() {/* You must Read Gamepad to get new values and set vibration values
+void loop() {
+  /* You must Read Gamepad to get new values and set vibration values
      ps2x.read_gamepad(small motor on/off, larger motor strenght from 0-255)
      if you don't enable the rumble, use ps2x.read_gamepad(); with no values
      You should call this at least once a second
@@ -137,18 +195,22 @@ void loop() {/* You must Read Gamepad to get new values and set vibration values
       Serial.println("Select is being held");      
 
     if(ps2x.Button(PSB_PAD_UP)) {      //will be TRUE as long as button is pressed
+      move(0, 255);
       Serial.print("Up held this hard: ");
       Serial.println(ps2x.Analog(PSAB_PAD_UP), DEC);
     }
     if(ps2x.Button(PSB_PAD_RIGHT)){
+      move(3, 127);
       Serial.print("Right held this hard: ");
       Serial.println(ps2x.Analog(PSAB_PAD_RIGHT), DEC);
     }
     if(ps2x.Button(PSB_PAD_LEFT)){
+      move(2, 127);
       Serial.print("LEFT held this hard: ");
       Serial.println(ps2x.Analog(PSAB_PAD_LEFT), DEC);
     }
     if(ps2x.Button(PSB_PAD_DOWN)){
+      move(1, 255);
       Serial.print("DOWN held this hard: ");
       Serial.println(ps2x.Analog(PSAB_PAD_DOWN), DEC);
     }   
