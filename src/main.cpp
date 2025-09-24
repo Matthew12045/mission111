@@ -93,53 +93,53 @@ void move(char direction, int speed)
     analogWrite(ENB, speed);
 }
 
-void setup(){
-Serial.begin(57600);
-pinMode(IN1, OUTPUT);
-pinMode(IN2, OUTPUT);
-pinMode(IN3, OUTPUT);
-pinMode(IN4, OUTPUT);
-pinMode(ENA, OUTPUT);
-pinMode(ENB, OUTPUT);
-pinMode(spin, OUTPUT);
-pinMode(rspin, OUTPUT);
+void setup() {
+    Serial.begin(57600);
+    pinMode(IN1, OUTPUT);
+    pinMode(IN2, OUTPUT);
+    pinMode(IN3, OUTPUT);
+    pinMode(IN4, OUTPUT);
+    pinMode(ENA, OUTPUT);
+    pinMode(ENB, OUTPUT);
+    pinMode(spin, OUTPUT);
+    pinMode(rspin, OUTPUT);
 
 
-//CHANGES for v1.6 HERE!!! *************PAY ATTENTION************
-delay(2000);
-error = ps2x.config_gamepad(13,11,10,12, true, true); //setup pins and settings: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
-delay(2000);
-if(error == 0){
-Serial.println("Found Controller, configured successful");
-Serial.println("Try out all the buttons, X will vibrate the controller, faster as you press harder;");
-Serial.println("holding L1 or R1 will print out the analog stick values.");
-Serial.println("Go to www.billporter.info for updates and to report bugs.");
-}
+    //CHANGES for v1.6 HERE!!! *************PAY ATTENTION************
+    while (error == 0) {
+        delay(2000);
+        error = ps2x.config_gamepad(13,11,10,12, true, true); //setup pins and settings: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
+        if(error == 0) {
+            Serial.println("Found Controller, configured successful");
+            Serial.println("Try out all the buttons, X will vibrate the controller, faster as you press harder;");
+            Serial.println("holding L1 or R1 will print out the analog stick values.");
+            Serial.println("Go to www.billporter.info for updates and to report bugs.");
+        }
 
-else if(error == 1)
-Serial.println("No controller found, check wiring, see readme.txt to enable debug. visit www.billporter.info for troubleshooting tips");
+        else if(error == 1)
+            Serial.println("No controller found, check wiring, see readme.txt to enable debug. visit www.billporter.info for troubleshooting tips");
 
-else if(error == 2)
-Serial.println("Controller found but not accepting commands. see readme.txt to enable debug. Visit www.billporter.info for troubleshooting tips");
+        else if(error == 2)
+            Serial.println("Controller found but not accepting commands. see readme.txt to enable debug. Visit www.billporter.info for troubleshooting tips");
 
-else if(error == 3)
-Serial.println("Controller refusing to enter Pressures mode, may not support it. ");
+        else if(error == 3)
+            Serial.println("Controller refusing to enter Pressures mode, may not support it. ");
 
-Serial.print(ps2x.Analog(1), HEX);
+        Serial.print(ps2x.Analog(1), HEX);
 
-type = ps2x.readType();
-switch(type) {
-case 0:
-Serial.println("Unknown Controller type");
-break;
-case 1:
-Serial.println("DualShock Controller Found");
-break;
-case 2:
-Serial.println("GuitarHero Controller Found");
-break;
-}
-
+        type = ps2x.readType();
+        switch(type) {
+        case 0:
+        Serial.println("Unknown Controller type");
+        break;
+        case 1:
+        Serial.println("DualShock Controller Found");
+        break;
+        case 2:
+        Serial.println("GuitarHero Controller Found");
+        break;
+        }
+    }
 }
 
 void loop(){
