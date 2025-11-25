@@ -1,19 +1,47 @@
 
 #include <PS2X_lib.h> //for v1.6
+#include <Servo.h>
 
 PS2X ps2x; // create PS2 Controller Class
+Servo servo; // create Servo object
 
 //right now, the library does NOT support hot pluggable controllers, meaning
 //you must always either restart your Arduino after you conect the controller,
 //or call config_gamepad(pins) again after connecting the controller.
-#define IN1 2
-#define IN2 3
-#define IN3 4
-#define IN4 7
-#define ENA 5
-#define ENB 6
 #define spin 9//spinner pin
 #define rspin 8
+#define clock 9
+#define command 12
+#define attention 11
+#define data 13
+#define PS2_DAT  12
+#define PS2_CMD  11
+#define PS2_SEL  10
+#define PS2_CLK  13
+
+// Left Front Motor (L298N #1 - Motor A)
+#define LEFT_FRONT_ENA   5   // PWM
+#define LEFT_FRONT_IN1   4
+#define LEFT_FRONT_IN2   3
+
+// Left Rear Motor (L298N #1 - Motor B)
+#define LEFT_REAR_ENB    9   // PWM
+#define LEFT_REAR_IN3    8
+#define LEFT_REAR_IN4    2
+
+// Right Front Motor (L298N #2 - Motor A)
+#define RIGHT_FRONT_ENA  6   // PWM
+#define RIGHT_FRONT_IN1  7
+#define RIGHT_FRONT_IN2  A0
+
+// Right Rear Motor (L298N #2 - Motor B)
+#define RIGHT_REAR_ENB   10  // PWM
+#define RIGHT_REAR_IN3   11
+#define RIGHT_REAR_IN4   A1
+
+#define DEADZONE 15
+#define Servo1 0
+#define Servo2 0
 
 int isSpinning = 0;
 int t = 0;
@@ -21,7 +49,8 @@ int speed = 255;
 int error = 0;
 byte type = 0;
 byte vibrate = 0;
-
+bool servo1Pressed = false;
+bool servo2Pressed = false;
 
 void makeSpin()
 {
@@ -42,73 +71,81 @@ void makeSpin()
     }
 }
 
-// 8 == forward, 4 == left, 2 == backward, 6 == right
 
-void move(char direction, int speed)
-{
-    if (direction == 8)
-    {
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, HIGH);
-        digitalWrite(IN3, LOW);
-        digitalWrite(IN4, HIGH);
-        // analogWrite(ENA, speed);
-        // analogWrite(ENB, speed);
-    }
-    else if (direction == 2)
-    {
-        digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);
-        digitalWrite(IN3, HIGH);
-        digitalWrite(IN4, LOW);
-        // analogWrite(ENA, speed);
-        // analogWrite(ENB, speed);
-    }
-    else if (direction == 4)
-    {
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, HIGH);
-        digitalWrite(IN3, HIGH);
-        digitalWrite(IN4, LOW);
-        // analogWrite(ENA, speed);
-        // analogWrite(ENB, speed);
-    }
-    else if(direction == 6)
-    {
-        digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);
-        digitalWrite(IN3, LOW);
-        digitalWrite(IN4, HIGH);
-        // analogWrite(ENA, speed);
-        // analogWrite(ENB, speed);
-    }
-    else
-    {
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, LOW);
-        digitalWrite(IN3, LOW);
-        digitalWrite(IN4, LOW);
-    }
-    analogWrite(ENA, speed);
-    analogWrite(ENB, speed);
+void driveMotor(int in1Pin, int in2Pin, int pwmPin, int speed) {
+  if (speed > 0) {
+    // Forward
+    digitalWrite(in1Pin, HIGH);
+    digitalWrite(in2Pin, LOW);
+    analogWrite(pwmPin, speed);
+  } else if (speed < 0) {
+    // Reverse
+    digitalWrite(in1Pin, LOW);
+    digitalWrite(in2Pin, HIGH);
+    analogWrite(pwmPin, -speed);
+  } else {
+    // Stop (coast)
+    digitalWrite(in1Pin, LOW);
+    digitalWrite(in2Pin, LOW);
+    analogWrite(pwmPin, 0);
+  }
+}
+
+void stopAllMotors() {
+  // Left Front
+  digitalWrite(LEFT_FRONT_IN1, LOW);
+  digitalWrite(LEFT_FRONT_IN2, LOW);
+  analogWrite(LEFT_FRONT_ENA, 0);
+  
+  // Left Rear
+  digitalWrite(LEFT_REAR_IN3, LOW);
+  digitalWrite(LEFT_REAR_IN4, LOW);
+  analogWrite(LEFT_REAR_ENB, 0);
+  
+  // Right Front
+  digitalWrite(RIGHT_FRONT_IN1, LOW);
+  digitalWrite(RIGHT_FRONT_IN2, LOW);
+  analogWrite(RIGHT_FRONT_ENA, 0);
+  
+  // Right Rear
+  digitalWrite(RIGHT_REAR_IN3, LOW);
+  digitalWrite(RIGHT_REAR_IN4, LOW);
+  analogWrite(RIGHT_REAR_ENB, 0);
 }
 
 void setup() {
     Serial.begin(57600);
-    pinMode(IN1, OUTPUT);
-    pinMode(IN2, OUTPUT);
-    pinMode(IN3, OUTPUT);
-    pinMode(IN4, OUTPUT);
-    pinMode(ENA, OUTPUT);
-    pinMode(ENB, OUTPUT);
-    pinMode(spin, OUTPUT);
-    pinMode(rspin, OUTPUT);
+      // Left Front Motor pins
+  pinMode(LEFT_FRONT_ENA, OUTPUT);
+  pinMode(LEFT_FRONT_IN1, OUTPUT);
+  pinMode(LEFT_FRONT_IN2, OUTPUT);
+  
+  // Left Rear Motor pins
+  pinMode(LEFT_REAR_ENB, OUTPUT);
+  pinMode(LEFT_REAR_IN3, OUTPUT);
+  pinMode(LEFT_REAR_IN4, OUTPUT);
+  
+  // Right Front Motor pins
+  pinMode(RIGHT_FRONT_ENA, OUTPUT);
+  pinMode(RIGHT_FRONT_IN1, OUTPUT);
+  pinMode(RIGHT_FRONT_IN2, OUTPUT);
+  
+  // Right Rear Motor pins
+  pinMode(RIGHT_REAR_ENB, OUTPUT);
+  pinMode(RIGHT_REAR_IN3, OUTPUT);
+  pinMode(RIGHT_REAR_IN4, OUTPUT);
 
+  // Initialize all motors to stopped
+  stopAllMotors();
+
+  servo.attach(Servo2); // Attach servo to pin A2
+  servo.attach(Servo1);
 
     //CHANGES for v1.6 HERE!!! *************PAY ATTENTION************
-    while (error == 0) {
+
         delay(2000);
-        error = ps2x.config_gamepad(13,11,10,12, true, true); //setup pins and settings: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
+        error = ps2x.config_gamepad(clock, command, attention, data, true, true); //setup pins and settings: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
+        delay(2000);
         if(error == 0) {
             Serial.println("Found Controller, configured successful");
             Serial.println("Try out all the buttons, X will vibrate the controller, faster as you press harder;");
@@ -139,7 +176,7 @@ void setup() {
         Serial.println("GuitarHero Controller Found");
         break;
         }
-    }
+    
 }
 
 void loop(){
@@ -151,8 +188,7 @@ if you don't enable the rumble, use ps2x.read_gamepad(); with no values
 you should call this at least once a second
 */
 
-move(10, speed);
-makeSpin();
+
 
 
 if(error == 1) //skip loop if no controller found
@@ -160,7 +196,7 @@ return;
 
 if(type == 2){ //Guitar Hero Controller
 
-ps2x.read_gamepad(); //read controller
+ps2x.read_gamepad(0, false); //read controller
 
 if(ps2x.ButtonPressed(GREEN_FRET))
 Serial.println("Green Fret Pressed");
@@ -198,7 +234,33 @@ Serial.println(ps2x.Analog(WHAMMY_BAR), DEC);
 
 else { //DualShock Controller
 
-ps2x.read_gamepad(false, vibrate); //read controller and set large motor to spin at 'vibrate' speed
+ps2x.read_gamepad(0, false); //read controller and set large motor to spin at 'vibrate' speed
+
+// LEFT STICK Y = Forward/Backward
+// RIGHT STICK X = Turn Left/Right
+int stickY = ps2x.Analog(PSS_LY);  // Left stick Y
+int stickX = ps2x.Analog(PSS_RX);  // Right stick X
+
+// Convert 0-255 to -255 to +255 (center = 0)
+int moveSpeed = map(stickY, 0, 255, 255, -255);  // Up = forward
+int turnSpeed = map(stickX, 0, 255, -255, 255);  // Right = positive
+
+// Apply deadzone
+if (abs(moveSpeed) < DEADZONE) moveSpeed = 0;
+if (abs(turnSpeed) < DEADZONE) turnSpeed = 0;
+
+// Mix movement and turning
+int leftSpeed  = constrain(moveSpeed + turnSpeed, -255, 255);
+int rightSpeed = constrain(moveSpeed - turnSpeed, -255, 255);
+
+// Drive LEFT side motors
+driveMotor(LEFT_FRONT_IN1, LEFT_FRONT_IN2, LEFT_FRONT_ENA, leftSpeed);
+driveMotor(LEFT_REAR_IN3, LEFT_REAR_IN4, LEFT_REAR_ENB, leftSpeed);
+
+// Drive RIGHT side motors
+driveMotor(RIGHT_FRONT_IN1, RIGHT_FRONT_IN2, RIGHT_FRONT_ENA, rightSpeed);
+driveMotor(RIGHT_REAR_IN3, RIGHT_REAR_IN4, RIGHT_REAR_ENB, rightSpeed);
+
 
 if(ps2x.Button(PSB_START)) //will be TRUE as long as button is pressed
 Serial.println("Start is being held");
@@ -209,22 +271,18 @@ Serial.println("Select is being held");
 if(ps2x.Button(PSB_PAD_UP)) { //will be TRUE as long as button is pressed
 Serial.print("Up held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_UP), DEC);
-move(8, speed);
 }
 if(ps2x.Button(PSB_PAD_RIGHT)){
 Serial.print("Right held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_RIGHT), DEC);
-move(6, speed);
 }
 if(ps2x.Button(PSB_PAD_LEFT)){
 Serial.print("LEFT held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_LEFT), DEC);
-move(4, speed);
 }
 if(ps2x.Button(PSB_PAD_DOWN)){
 Serial.print("DOWN held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_DOWN), DEC);
-move(2, speed);
 }
 
 
@@ -261,18 +319,38 @@ if(ps2x.Button(PSB_GREEN))
 if(ps2x.ButtonPressed(PSB_RED)) //will be TRUE if button was JUST pressed
 {
     Serial.println("Circle just pressed");
+    if(servo2Pressed){
+        servo.write(90);
+    }
+    else{
+        servo.write(0);
+    }
+    servo2Pressed = !servo2Pressed;
+    delay(50);
+}
+
+if(ps2x.ButtonPressed(PSB_PINK)) //will be TRUE if button was JUST released
+{
+    Serial.println("Square just released");
+    if(servo1Pressed){
+        servo.write(90);
+    }
+    else{
+        servo.write(0);
+    }
+    servo1Pressed = !servo1Pressed;
+    delay(50);
+}
+
+if(ps2x.ButtonPressed(PSB_BLUE)) {
+    Serial.println("X just changed");
     if (isSpinning ==1 || isSpinning == 0)
         isSpinning =-1;
 }
-
-if(ps2x.ButtonReleased(PSB_PINK)) //will be TRUE if button was JUST released
-{Serial.println("Square just released");
-
-        isSpinning = 0;
+if(ps2x.ButtonReleased(PSB_BLUE)) {
+    isSpinning = 1;
 }
-
-if(ps2x.NewButtonState(PSB_BLUE)) //will be TRUE if button was JUST pressed OR released
-Serial.println("X just changed");
+//will be TRUE if button was JUST pressed OR released
 
 
 if(ps2x.Button(PSB_R2))
