@@ -4,45 +4,40 @@
 
 DRV8825 stepper;
 PS2X ps2x; // create PS2 Controller Class
-Servo servo; // create Servo object
+Servo servo_1; // create Servo object
+Servo servo_2; // create Servo object
 
 //right now, the library does NOT support hot pluggable controllers, meaning
 //you must always either restart your Arduino after you conect the controller,
 //or call config_gamepad(pins) again after connecting the controller.
-#define spin 9//spinner pin
-#define rspin 8
-#define clock 9
-#define command 12
-#define attention 11
-#define data 13
-#define PS2_DAT  12
-#define PS2_CMD  11
-#define PS2_SEL  10
-#define PS2_CLK  13
+#define data A2
+#define command A3
+#define attention A4
+#define clock A5
 
 // Left Front Motor (L298N #1 - Motor A)
-#define LEFT_FRONT_ENA   5   // PWM
-#define LEFT_FRONT_IN1   4
-#define LEFT_FRONT_IN2   3
+#define LEFT_FRONT_ENA   0   // PWM
+#define LEFT_FRONT_IN1   12
+#define LEFT_FRONT_IN2   13
 
 // Left Rear Motor (L298N #1 - Motor B)
-#define LEFT_REAR_ENB    9   // PWM
-#define LEFT_REAR_IN3    8
-#define LEFT_REAR_IN4    2
+#define LEFT_REAR_ENB    0   // PWM
+#define LEFT_REAR_IN3    10
+#define LEFT_REAR_IN4    11
 
 // Right Front Motor (L298N #2 - Motor A)
-#define RIGHT_FRONT_ENA  6   // PWM
-#define RIGHT_FRONT_IN1  7
-#define RIGHT_FRONT_IN2  A0
+#define RIGHT_FRONT_ENA  0   // PWM
+#define RIGHT_FRONT_IN1  6
+#define RIGHT_FRONT_IN2  7
 
 // Right Rear Motor (L298N #2 - Motor B)
-#define RIGHT_REAR_ENB   10  // PWM
-#define RIGHT_REAR_IN3   11
-#define RIGHT_REAR_IN4   A1
+#define RIGHT_REAR_ENB   0  // PWM
+#define RIGHT_REAR_IN3   8
+#define RIGHT_REAR_IN4   9
 
 #define DEADZONE 15
-#define Servo1 0
-#define Servo2 0
+#define Servo1 A0
+#define Servo2 A1
 
 #define stepDirection 0
 #define stepPin 0
@@ -128,8 +123,11 @@ void setup() {
 
   stepper.begin(stepDirection, stepPin);
 
-  servo.attach(Servo2); // Attach servo to pin A2
-  servo.attach(Servo1);
+  servo_2.attach(Servo2); // Attach servo to pin A2
+  servo_1.attach(Servo1);
+
+  servo_1.write(90);
+  servo_2.write(0);
 
     //CHANGES for v1.6 HERE!!! *************PAY ATTENTION************
 
@@ -310,10 +308,10 @@ if(ps2x.ButtonPressed(PSB_RED)) //will be TRUE if button was JUST pressed
 {
     Serial.println("Circle just pressed");
     if(servo2Pressed){
-        servo.write(90);
+        servo_2.write(90);
     }
     else{
-        servo.write(0);
+        servo_2.write(0);
     }
     servo2Pressed = !servo2Pressed;
     delay(50);
@@ -323,10 +321,10 @@ if(ps2x.ButtonPressed(PSB_PINK)) //will be TRUE if button was JUST released
 {
     Serial.println("Square just released");
     if(servo1Pressed){
-        servo.write(90);
+        servo_1.write(90);
     }
     else{
-        servo.write(0);
+        servo_1.write(120);
     }
     servo1Pressed = !servo1Pressed;
     delay(50);
