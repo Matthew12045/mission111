@@ -1,7 +1,8 @@
-
 #include <PS2X_lib.h> //for v1.6
 #include <Servo.h>
+#include <DRV8825.h>
 
+DRV8825 stepper;
 PS2X ps2x; // create PS2 Controller Class
 Servo servo; // create Servo object
 
@@ -43,33 +44,20 @@ Servo servo; // create Servo object
 #define Servo1 0
 #define Servo2 0
 
-int isSpinning = 0;
-int t = 0;
-int speed = 255;
+#define stepDirection 0
+#define stepPin 0
+
+//  setDirection
+
+int moveSpeed = 0;
+int turnSpeed = 0;
+int vibrate = 0;
 int error = 0;
-byte type = 0;
-byte vibrate = 0;
+int type = 0;
 bool servo1Pressed = false;
 bool servo2Pressed = false;
 
-void makeSpin()
-{
-    if (isSpinning==0)
-    {
-        digitalWrite(spin, LOW);
-        digitalWrite(spin, LOW);
-    }
-    else if (isSpinning ==1)
-    {
-        digitalWrite(spin, HIGH);
-        digitalWrite(rspin, LOW);
-    }
-    else if (isSpinning == -1)
-    {
-        digitalWrite(spin, LOW);
-        digitalWrite(rspin, HIGH);
-    }
-}
+
 
 
 void driveMotor(int in1Pin, int in2Pin, int pwmPin, int speed) {
@@ -137,6 +125,8 @@ void setup() {
 
   // Initialize all motors to stopped
   stopAllMotors();
+
+  stepper.begin(stepDirection, stepPin);
 
   servo.attach(Servo2); // Attach servo to pin A2
   servo.attach(Servo1);
@@ -271,6 +261,8 @@ Serial.println("Select is being held");
 if(ps2x.Button(PSB_PAD_UP)) { //will be TRUE as long as button is pressed
 Serial.print("Up held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_UP), DEC);
+stepper.setDirection(DRV8825_CLOCK_WISE);
+stepper.step();
 }
 if(ps2x.Button(PSB_PAD_RIGHT)){
 Serial.print("Right held this hard: ");
@@ -283,6 +275,8 @@ Serial.println(ps2x.Analog(PSAB_PAD_LEFT), DEC);
 if(ps2x.Button(PSB_PAD_DOWN)){
 Serial.print("DOWN held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_DOWN), DEC);
+stepper.setDirection(DRV8825_COUNTERCLOCK_WISE);
+stepper.step();
 }
 
 
@@ -305,10 +299,6 @@ Serial.println("R2 pressed");
 if(ps2x.Button(PSB_GREEN))
 {
     Serial.println("Triangle pressed");
-    if (isSpinning == 0 || isSpinning == -1)
-    {
-        isSpinning = 1;
-    }
 }
 }
 
@@ -344,63 +334,27 @@ if(ps2x.ButtonPressed(PSB_PINK)) //will be TRUE if button was JUST released
 
 if(ps2x.ButtonPressed(PSB_BLUE)) {
     Serial.println("X just changed");
-    if (isSpinning ==1 || isSpinning == 0)
-        isSpinning =-1;
 }
 if(ps2x.ButtonReleased(PSB_BLUE)) {
-    isSpinning = 1;
 }
 //will be TRUE if button was JUST pressed OR released
 
 
 if(ps2x.Button(PSB_R2))
 {
-    if (!(t > 20))
-    {
-        speed++;
-
-    }
-    else
-    {
-        speed += 5;
-    }
-    t++;
-    Serial.println(t);
-
-    if (speed >= 255)    
-    {  
-        speed = 255;
-    }
-    Serial.println(speed);
+    Serial.println(moveSpeed);
 }
 if (ps2x.ButtonReleased(PSB_R2))
     {
-        t=0;
+        
     }
 
 if(ps2x.Button(PSB_L2))
 {
-    if (!(t > 20))
-    {
-        speed--;
-
-    }
-    else
-    {
-        speed -= 5;
-    }
-    t++;
-    Serial.println(t);
-
-    if(speed <25)
-    {
-        speed=25;
-    }
-    Serial.println(speed);
+    Serial.println(turnSpeed);
 }
     if (ps2x.ButtonReleased(PSB_L2))
     {
-        t=0;
     }
 
 
