@@ -1,8 +1,13 @@
 #include <PS2X_lib.h> //for v1.6
 #include <Servo.h>
-#include <DRV8825.h>
+#include <AccelStepper.h>
 
-DRV8825 stepper;
+// Define motor interface type (1 means a driver with Step and Direction pins)
+#define MOTOR_INTERFACE_TYPE 1
+// Create a new instance of the AccelStepper class:
+// stepPin = 3, stepDirection = 5 (matching your defines)
+AccelStepper stepper(MOTOR_INTERFACE_TYPE, 3, 5);
+
 PS2X ps2x; // create PS2 Controller Class
 Servo servo_1; // create Servo object
 Servo servo_2; // create Servo object
@@ -17,30 +22,31 @@ Servo servo_2; // create Servo object
 
 // Left Front Motor (L298N #1 - Motor A)
 #define LEFT_FRONT_ENA   0   // PWM
-#define LEFT_FRONT_IN1   12
-#define LEFT_FRONT_IN2   13
+#define LEFT_FRONT_IN1   13
+#define LEFT_FRONT_IN2   12
 
 // Left Rear Motor (L298N #1 - Motor B)
 #define LEFT_REAR_ENB    0   // PWM
-#define LEFT_REAR_IN3    10
-#define LEFT_REAR_IN4    11
+#define LEFT_REAR_IN3    11
+#define LEFT_REAR_IN4    10
 
 // Right Front Motor (L298N #2 - Motor A)
 #define RIGHT_FRONT_ENA  0   // PWM
-#define RIGHT_FRONT_IN1  6
-#define RIGHT_FRONT_IN2  7
+#define RIGHT_FRONT_IN1  7
+#define RIGHT_FRONT_IN2  6
 
 // Right Rear Motor (L298N #2 - Motor B)
 #define RIGHT_REAR_ENB   0  // PWM
-#define RIGHT_REAR_IN3   8
-#define RIGHT_REAR_IN4   9
+#define RIGHT_REAR_IN3   9
+#define RIGHT_REAR_IN4   8
 
 #define DEADZONE 15
 #define Servo1 A0
 #define Servo2 A1
 
-#define stepDirection 0
-#define stepPin 0
+#define stepDirection 5
+#define stepPin 3
+#define stepENA 4
 
 //  setDirection
 
@@ -95,6 +101,27 @@ void stopAllMotors() {
   digitalWrite(RIGHT_REAR_IN4, LOW);
   analogWrite(RIGHT_REAR_ENB, 0);
 }
+void brake() {
+    // Left Front
+  digitalWrite(LEFT_FRONT_IN1, HIGH);
+  digitalWrite(LEFT_FRONT_IN2, HIGH);
+  analogWrite(LEFT_FRONT_ENA, 0);
+  
+  // Left Rear
+  digitalWrite(LEFT_REAR_IN3, HIGH);
+  digitalWrite(LEFT_REAR_IN4, HIGH);
+  analogWrite(LEFT_REAR_ENB, 0);
+  
+  // Right Front
+  digitalWrite(RIGHT_FRONT_IN1, HIGH);
+  digitalWrite(RIGHT_FRONT_IN2, HIGH);
+  analogWrite(RIGHT_FRONT_ENA, 0);
+  
+  // Right Rear
+  digitalWrite(RIGHT_REAR_IN3, HIGH);
+  digitalWrite(RIGHT_REAR_IN4, HIGH);
+  analogWrite(RIGHT_REAR_ENB, 0);
+}
 
 void setup() {
     Serial.begin(57600);
@@ -118,16 +145,23 @@ void setup() {
   pinMode(RIGHT_REAR_IN3, OUTPUT);
   pinMode(RIGHT_REAR_IN4, OUTPUT);
 
+  pinMode(stepENA, OUTPUT);
+  digitalWrite(stepENA, LOW); // LOW to enable the driver
+
   // Initialize all motors to stopped
   stopAllMotors();
 
-  stepper.begin(stepDirection, stepPin);
+  // Set the maximum speed in steps per second:
+  stepper.setMaxSpeed(3000);
+  // Set the acceleration in steps per second per second:
+  stepper.setAcceleration(2000); // Lower acceleration for smoother stops
 
   servo_2.attach(Servo2); // Attach servo to pin A2
   servo_1.attach(Servo1);
 
   servo_1.write(90);
   servo_2.write(0);
+
 
     //CHANGES for v1.6 HERE!!! *************PAY ATTENTION************
 
@@ -164,20 +198,18 @@ void setup() {
         Serial.println("GuitarHero Controller Found");
         break;
         }
+
     
 }
 
 void loop(){
-/* You must Read Gamepad to get new values
-Read GamePad and set vibration values
-ps2x.read_gamepad(small motor on/off, larger motor strenght from 0-255)
-if you don't enable the rumble, use ps2x.read_gamepad(); with no values
+    // Stepper must run as often as possible
+    stepper.run();
 
-you should call this at least once a second
-*/
-
-
-
+    // Only check controller every 50ms to allow stepper to run smoothly
+    static unsigned long lastTime = 0;
+    if (millis() - lastTime < 50) return;
+    lastTime = millis();
 
 if(error == 1) //skip loop if no controller found
 return;
@@ -256,11 +288,12 @@ if(ps2x.Button(PSB_SELECT))
 Serial.println("Select is being held");
 
 
-if(ps2x.Button(PSB_PAD_UP)) { //will be TRUE as long as button is pressed
-Serial.print("Up held this hard: ");
-Serial.println(ps2x.Analog(PSAB_PAD_UP), DEC);
-stepper.setDirection(DRV8825_CLOCK_WISE);
-stepper.step();
+// --- STEPPER LOGIC ---
+if(ps2x.Button(PSB_R2)) { 
+    stepper.move(200); // Set target relative to current position
+}
+else if(ps2x.Button(PSB_L2)){
+    stepper.move(-200); // Set target relative to current position
 }
 if(ps2x.Button(PSB_PAD_RIGHT)){
 Serial.print("Right held this hard: ");
@@ -269,12 +302,6 @@ Serial.println(ps2x.Analog(PSAB_PAD_RIGHT), DEC);
 if(ps2x.Button(PSB_PAD_LEFT)){
 Serial.print("LEFT held this hard: ");
 Serial.println(ps2x.Analog(PSAB_PAD_LEFT), DEC);
-}
-if(ps2x.Button(PSB_PAD_DOWN)){
-Serial.print("DOWN held this hard: ");
-Serial.println(ps2x.Analog(PSAB_PAD_DOWN), DEC);
-stepper.setDirection(DRV8825_COUNTERCLOCK_WISE);
-stepper.step();
 }
 
 
@@ -290,17 +317,31 @@ if(ps2x.Button(PSB_L3))
 Serial.println("L3 pressed");
 if(ps2x.Button(PSB_R3))
 Serial.println("R3 pressed");
-if(ps2x.Button(PSB_L2))
-Serial.println("L2 pressed");
-if(ps2x.Button(PSB_R2))
-Serial.println("R2 pressed");
+if(ps2x.Button(PSB_L1)){
+    servo_1.write(120);
+    Serial.println("L1 pressed");
+}
+if(ps2x.ButtonReleased(PSB_L1)){
+    servo_1.write(90);
+    Serial.println("L1 released");
+}
+if(ps2x.Button(PSB_R1)){
+    servo_1.write(60);
+    Serial.println("R1 pressed");
+}
+if(ps2x.ButtonReleased(PSB_R1)){
+    servo_1.write(90);
+    Serial.println("R1 released");
+}
+if(ps2x.Button(PSB_R2)){
+    brake();
+    Serial.println("R2 pressed");
+}
 if(ps2x.Button(PSB_GREEN))
 {
     Serial.println("Triangle pressed");
 }
 }
-
-
 }
 
 
@@ -317,21 +358,20 @@ if(ps2x.ButtonPressed(PSB_RED)) //will be TRUE if button was JUST pressed
     delay(50);
 }
 
-if(ps2x.ButtonPressed(PSB_PINK)) //will be TRUE if button was JUST released
+if(ps2x.Button(PSB_PINK)) //will be TRUE if button was JUST released
+{
+    Serial.println("Square just held");
+}
+if(ps2x.ButtonReleased(PSB_PINK)) //will be TRUE if button was JUST released
 {
     Serial.println("Square just released");
-    if(servo1Pressed){
-        servo_1.write(90);
-    }
-    else{
-        servo_1.write(120);
-    }
-    servo1Pressed = !servo1Pressed;
-    delay(50);
 }
 
-if(ps2x.ButtonPressed(PSB_BLUE)) {
-    Serial.println("X just changed");
+if(ps2x.Button(PSB_BLUE)) {
+    Serial.println("X just held");
+}
+if(ps2x.ButtonReleased(PSB_BLUE)) {
+    Serial.println("X just released");
 }
 if(ps2x.ButtonReleased(PSB_BLUE)) {
 }
@@ -368,8 +408,4 @@ if(ps2x.Button(PSB_L1) || ps2x.Button(PSB_R1)) // print stick values if either i
     Serial.print(",");
     Serial.println(ps2x.Analog(PSS_RX), DEC);
 }
-    delay(50);
 }
-
-
-
